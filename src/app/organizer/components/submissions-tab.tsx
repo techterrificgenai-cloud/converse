@@ -150,8 +150,6 @@ export function SubmissionsTab() {
     };
 
     setAgendaSlots(prev => [...prev, newSlot]);
-    // Also update the shared data source so speakers can see it
-    initialAgendaSlots.push(newSlot);
     
     toast({
         title: 'Agenda Slot Added',

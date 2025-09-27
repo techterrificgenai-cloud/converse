@@ -101,7 +101,7 @@ export default function SubmitProposalPage() {
     setIsSuggestionsOpen(false);
   };
   
-  const availableSlots = agendaSlots.filter(slot => slot.status !== 'Filled');
+  const availableSlots = agendaSlots.filter(slot => slot.status === 'Open');
 
   return (
     <>
