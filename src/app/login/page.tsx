@@ -56,11 +56,15 @@ export default function LoginPage() {
   }, [role, form]);
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    // For this prototype, we'll use a hardcoded organizer email.
+    // Any other email will be treated as a speaker, simulating a successful login
+    // without actual password validation against a database.
     if (values.email === ORGANIZER_EMAIL) {
       setAuthStatus({ loggedIn: true, role: 'organizer' });
       router.push('/organizer');
     } else {
-      // For this prototype, any other email is treated as a speaker
+      // Treat any other valid email submission as a speaker login.
+      // This allows users created via the sign-up flow to "log in".
       setAuthStatus({ loggedIn: true, role: 'speaker' });
       router.push('/speaker');
     }
@@ -89,7 +93,7 @@ export default function LoginPage() {
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="organizer@conferverse.com"
+                        placeholder="your.email@example.com"
                         {...field}
                       />
                     </FormControl>
