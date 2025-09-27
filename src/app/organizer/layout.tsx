@@ -1,5 +1,6 @@
+
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -42,12 +43,17 @@ export default function OrganizerLayout({
 }) {
   const router = useRouter();
   const [authStatus] = useLocalStorage('auth-status', { loggedIn: false, role: null });
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (!authStatus.loggedIn || authStatus.role !== 'organizer')) {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && (!authStatus.loggedIn || authStatus.role !== 'organizer')) {
       router.replace('/login');
     }
-  }, [authStatus, router]);
+  }, [authStatus, router, isClient]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -56,12 +62,19 @@ export default function OrganizerLayout({
     router.replace('/');
   };
 
-  if (!authStatus.loggedIn || authStatus.role !== 'organizer') {
+  if (!isClient || !authStatus.loggedIn || authStatus.role !== 'organizer') {
     return (
         <div className="flex items-center justify-center h-screen">
-            <div className="flex flex-col items-center gap-4">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-screen w-screen" />
+            <div className="space-y-6 w-full p-6">
+                <div className="flex items-center justify-between">
+                    <Skeleton className="h-10 w-48" />
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                </div>
+                <div className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                </div>
             </div>
         </div>
     );

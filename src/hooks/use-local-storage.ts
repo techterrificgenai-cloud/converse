@@ -5,30 +5,22 @@ import { useState, useEffect } from 'react';
 
 // A custom hook to synchronize state with localStorage.
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // This function gets the stored value from localStorage, or returns the initial value.
-  // It's wrapped in a function to ensure it only runs on the client-side.
-  const getStoredValue = () => {
-    // Check if we are on the server first. If so, return initial value.
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error('Error reading from localStorage', error);
-      return initialValue;
-    }
-  };
-
+  // We need to use a function for the initial state to avoid a hydration mismatch.
+  // The state is initialized to the initialValue, and then useEffect updates it
+  // on the client side.
   const [storedValue, setStoredValue] = useState<T>(initialValue);
 
-  // This effect runs once on mount on the client side to get the initial value
-  // from localStorage.
   useEffect(() => {
-    setStoredValue(getStoredValue());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // This effect runs only on the client, after the initial render.
+    try {
+      const item = window.localStorage.getItem(key);
+      setStoredValue(item ? JSON.parse(item) : initialValue);
+    } catch (error) {
+      console.error('Error reading from localStorage', error);
+      setStoredValue(initialValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]); // We only need to run this when the key changes.
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
