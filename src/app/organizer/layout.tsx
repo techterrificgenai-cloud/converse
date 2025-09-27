@@ -1,3 +1,6 @@
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home,
@@ -5,9 +8,9 @@ import {
   Calendar,
   Send,
   BarChart2,
-  Settings,
   Users,
   PanelLeft,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +23,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/icons';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const navItems = [
   { href: '/organizer', icon: Home, label: 'Dashboard' },
@@ -35,6 +40,33 @@ export default function OrganizerLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const [authStatus] = useLocalStorage('auth-status', { loggedIn: false, role: null });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (!authStatus.loggedIn || authStatus.role !== 'organizer')) {
+      router.replace('/login');
+    }
+  }, [authStatus, router]);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('auth-status');
+    }
+    router.replace('/');
+  };
+
+  if (!authStatus.loggedIn || authStatus.role !== 'organizer') {
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <div className="flex flex-col items-center gap-4">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-screen w-screen" />
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-muted/40 md:block">
@@ -110,8 +142,9 @@ export default function OrganizerLayout({
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/">Exit to Landing Page</Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

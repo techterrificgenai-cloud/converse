@@ -1,13 +1,15 @@
-
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Home,
   FilePlus,
-  User,
   PanelLeft,
   CalendarCheck,
   Download,
-  Award
+  Award,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +24,9 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { speakers } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 const navItems = [
   { href: '/speaker', icon: Home, label: 'Dashboard' },
@@ -31,7 +36,6 @@ const navItems = [
   { href: '/speaker/certificate', icon: Award, label: 'Certificate' },
 ];
 
-// For prototype, we'll just use the first speaker as the logged-in user.
 const currentUser = speakers.find(s => s.name === 'Alice')!;
 
 export default function SpeakerLayout({
@@ -39,6 +43,33 @@ export default function SpeakerLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const [authStatus] = useLocalStorage('auth-status', { loggedIn: false, role: null });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (!authStatus.loggedIn || authStatus.role !== 'speaker')) {
+      router.replace('/login');
+    }
+  }, [authStatus, router]);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('auth-status');
+    }
+    router.replace('/');
+  };
+
+  if (!authStatus.loggedIn || authStatus.role !== 'speaker') {
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <div className="flex flex-col items-center gap-4">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-screen w-screen" />
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-muted/40 md:block">
@@ -117,8 +148,9 @@ export default function SpeakerLayout({
               <DropdownMenuItem>My Profile</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/">Exit to Landing Page</Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
