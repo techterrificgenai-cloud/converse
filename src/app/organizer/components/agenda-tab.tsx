@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { sessions as initialSessions, speakers } from '@/lib/data';
 import type { Session, SessionTrack } from '@/lib/types';
