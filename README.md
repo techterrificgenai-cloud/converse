@@ -66,3 +66,8 @@ The Speaker Dashboard helps speakers manage their engagement:
 ---
 
 ConferVerse demonstrates a full, interactive loop: organizers create opportunities, the system intelligently recommends them to relevant speakers, and AI assists in making fair, data-driven decisions while maintaining positive speaker relations.
+
+
+
+
+MVP link deployed link  "https://9000-firebase-studio-1758948962367.cluster-y75up3teuvc62qmnwys4deqv6y.cloudworkstations.dev"
