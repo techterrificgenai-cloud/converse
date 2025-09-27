@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { proposals as initialProposals, speakers, agendaSlots } from '@/lib/data';
-import type { Proposal, ProposalStatus } from '@/lib/types';
+import { proposals as initialProposals, speakers, agendaSlots as initialAgendaSlots } from '@/lib/data';
+import type { Proposal, ProposalStatus, AgendaSlot } from '@/lib/types';
 import { FilePlus, Upload, CalendarCheck, Award, QrCode } from 'lucide-react';
 import { MockQRCode } from '@/components/mock-qr-code';
 import {
@@ -18,12 +18,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 // For prototype, we'll just use the first speaker as the logged-in user.
 const currentUser = speakers.find(s => s.name === 'Alice')!;
 
 export default function SpeakerDashboard() {
-  const [proposals, setProposals] = useState<Proposal[]>(initialProposals.filter(p => p.speakerId === currentUser.id));
+  const [proposals, setProposals] = useLocalStorage<Proposal[]>(`proposals_${currentUser.id}`, initialProposals.filter(p => p.speakerId === currentUser.id));
+  const [agendaSlots] = useLocalStorage<AgendaSlot[]>('agendaSlots', initialAgendaSlots);
   const [availabilityConfirmed, setAvailabilityConfirmed] = useState(currentUser.availabilityConfirmed);
   const [presentationUploaded, setPresentationUploaded] = useState(currentUser.presentationUploaded);
 
