@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { sessions as initialSessions, speakers } from '@/lib/data';
-import type { Session, SessionTrack } from '@/lib/types';
+import { agendaSlots as initialAgendaSlots, proposals as initialProposals, speakers } from '@/lib/data';
+import type { AgendaSlot, Proposal, SessionTrack } from '@/lib/types';
 import { AlertCircle, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 
 const timeSlots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'];
-const rooms = ['Main Hall', 'Room A', 'Room B', 'Workshop Zone'];
+const rooms = ['Hall A', 'Hall B', 'Hall C', 'Workshop Zone'];
 
 const trackColors: Record<SessionTrack, string> = {
   'AI & ML': 'bg-blue-200 border-blue-400 text-blue-800 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-200',
@@ -25,19 +26,19 @@ const trackColors: Record<SessionTrack, string> = {
 };
 
 export function AgendaTab() {
-  const [sessions, setSessions] = useState<Session[]>(
-    initialSessions.filter((s) => s.status === 'Accepted')
-  );
+  const [agendaSlots, setAgendaSlots] = useState<AgendaSlot[]>(initialAgendaSlots.filter(s => s.status === 'Filled'));
+  const [proposals, setProposals] = useState<Proposal[]>(initialProposals);
 
-  const getSessionAt = (time: string, room: string) => {
-    return sessions.find(
-      (s) => s.scheduledAt?.includes(`T${time}`) && s.scheduledRoom === room
+
+  const getFilledSlot = (time: string, room: string) => {
+    return agendaSlots.find(
+      (s) => s.time === time && s.room === room && s.status === 'Filled'
     );
   };
   
   const checkImbalance = (time: string, track: SessionTrack) => {
-    const sessionsAtTime = sessions.filter(s => s.scheduledAt?.includes(`T${time}`));
-    return sessionsAtTime.filter(s => s.track === track).length > 1;
+    const slotsAtTime = agendaSlots.filter(s => s.time === time);
+    return slotsAtTime.filter(s => s.track === track).length > 1;
   }
 
   return (
@@ -63,20 +64,23 @@ export function AgendaTab() {
                 <React.Fragment key={time}>
                   <div className="p-2 font-semibold bg-muted/50 flex items-center justify-center">{time}</div>
                   {rooms.map((room) => {
-                    const session = getSessionAt(time, room);
+                    const slot = getFilledSlot(time, room);
+                    const proposal = slot ? proposals.find(p => p.id === slot.acceptedProposalId) : null;
+                    const speaker = proposal ? speakers.find(s => s.id === proposal.speakerId) : null;
+
                     return (
                       <div
                         key={`${time}-${room}`}
                         className="p-2 bg-background min-h-[6rem] border-dashed border-border/50 border"
                       >
-                        {session && (
+                        {slot && proposal && speaker && (
                           <div
-                            className={`p-2 rounded-lg text-xs shadow-sm relative ${trackColors[session.track]}`}
+                            className={`p-2 rounded-lg text-xs shadow-sm relative ${trackColors[slot.track]}`}
                           >
-                            <p className="font-bold text-sm mb-1">{session.title}</p>
-                            <p className="text-muted-foreground">{speakers.find(s => s.id === session.speakerId)?.name}</p>
-                            <Badge variant="secondary" className="mt-2">{session.track}</Badge>
-                            {checkImbalance(time, session.track) && (
+                            <p className="font-bold text-sm mb-1">{proposal.title}</p>
+                            <p className="text-muted-foreground">{speaker.name}</p>
+                            <Badge variant="secondary" className="mt-2">{slot.track}</Badge>
+                            {checkImbalance(time, slot.track) && (
                                <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="absolute top-1 right-1">
@@ -84,7 +88,7 @@ export function AgendaTab() {
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Track imbalance: Multiple '{session.track}' sessions at the same time.</p>
+                                  <p>Track imbalance: Multiple '{slot.track}' sessions at the same time.</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}

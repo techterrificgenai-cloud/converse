@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import {
   Home,
@@ -31,7 +32,7 @@ const navItems = [
 ];
 
 // For prototype, we'll just use the first speaker as the logged-in user.
-const currentUser = speakers[0];
+const currentUser = speakers.find(s => s.name === 'Alice')!;
 
 export default function SpeakerLayout({
   children,

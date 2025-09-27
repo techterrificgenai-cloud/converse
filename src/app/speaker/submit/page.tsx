@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -35,25 +36,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Loader2, Send } from 'lucide-react';
 import { suggestSessionTitles } from '@/ai/flows/ai-suggest-session-titles';
-import type { SessionCategory, SessionTrack } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { agendaSlots } from '@/lib/data';
 
 const proposalSchema = z.object({
+  slotId: z.string().nonempty('Please select an agenda slot.'),
   title: z.string().min(10, 'Title must be at least 10 characters long.'),
   abstract: z.string().min(50, 'Abstract must be at least 50 characters long.'),
-  category: z.string().nonempty('Please select a category.'),
-  track: z.string().nonempty('Please select a track.'),
 });
-
-const categories: SessionCategory[] = ['Keynote', 'Deep Dive', 'Workshop', 'Panel'];
-const tracks: SessionTrack[] = ['AI & ML', 'Cloud Native', 'Frontend', 'DevOps', 'Security'];
 
 export default function SubmitProposalPage() {
   const { toast } = useToast();
   const router = useRouter();
   const form = useForm<z.infer<typeof proposalSchema>>({
     resolver: zodResolver(proposalSchema),
-    defaultValues: { title: '', abstract: '', category: '', track: '' },
+    defaultValues: { slotId: '', title: '', abstract: '' },
   });
 
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
@@ -64,7 +61,7 @@ export default function SubmitProposalPage() {
     console.log(values);
     toast({
       title: 'Proposal Submitted!',
-      description: 'Your session proposal has been received. You can track its status on your dashboard.',
+      description: 'Your proposal has been received. You can track its status on your dashboard.',
     });
     router.push('/speaker');
   };
@@ -103,22 +100,46 @@ export default function SubmitProposalPage() {
     form.setValue('title', suggestion);
     setIsSuggestionsOpen(false);
   };
+  
+  const availableSlots = agendaSlots.filter(slot => slot.status !== 'Filled');
 
   return (
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Submit a New Session Proposal</CardTitle>
+        <CardTitle>Submit a New Proposal</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
               control={form.control}
+              name="slotId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Agenda Slot</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an available agenda slot to apply for" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableSlots.map(slot => <SelectItem key={slot.id} value={slot.id}>[{slot.track}] {slot.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>This is the conference slot you are applying to speak in.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Session Title</FormLabel>
+                  <FormLabel>Your Proposal Title</FormLabel>
                   <div className="flex gap-2">
                     <FormControl>
                       <Input placeholder="e.g., The Future of Web Development" {...field} />
@@ -145,54 +166,13 @@ export default function SubmitProposalPage() {
                     />
                   </FormControl>
                   <FormDescription>
-                    This will be shown to attendees. Be clear and engaging.
+                    This will be shown to the review committee. Be clear and engaging.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="grid md:grid-cols-2 gap-8">
-                <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a session category" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="track"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Track</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a relevant track" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {tracks.map(track => <SelectItem key={track} value={track}>{track}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-            </div>
+            
             <Button type="submit">
                 <Send className="mr-2 h-4 w-4" /> Submit Proposal
             </Button>

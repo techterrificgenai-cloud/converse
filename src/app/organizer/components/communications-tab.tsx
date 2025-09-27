@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -20,8 +21,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { sessions, speakers } from '@/lib/data';
-import type { Session, SessionStatus, Speaker } from '@/lib/types';
+import { proposals, speakers } from '@/lib/data';
+import type { Proposal, ProposalStatus, Speaker } from '@/lib/types';
 import { Send, Loader2, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generatePersonalizedEmail } from '@/ai/flows/automate-personalized-emails';
@@ -29,32 +30,32 @@ import { Textarea } from '@/components/ui/textarea';
 
 export function CommunicationsTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [emailContent, setEmailContent] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
   const { toast } = useToast();
 
-  const handleOpenDialog = (session: Session) => {
-    const speaker = speakers.find((s) => s.id === session.speakerId);
+  const handleOpenDialog = (proposal: Proposal) => {
+    const speaker = speakers.find((s) => s.id === proposal.speakerId);
     if (!speaker) return;
 
-    setSelectedSession(session);
+    setSelectedProposal(proposal);
     setSelectedSpeaker(speaker);
-    setFeedback(session.aiFeedback || (session.status === 'Accepted' ? 'Great proposal!' : 'Topic did not align with our current focus.'));
+    setFeedback(proposal.aiFeedback || (proposal.status === 'Accepted' ? 'Great proposal!' : 'Topic did not align with our current focus.'));
     setEmailContent('');
     setIsDialogOpen(true);
   };
   
   const handleGenerateEmail = async () => {
-    if (!selectedSession || !selectedSpeaker) return;
+    if (!selectedProposal || !selectedSpeaker) return;
     setIsAiLoading(true);
     try {
       const result = await generatePersonalizedEmail({
         speakerName: selectedSpeaker.name,
-        sessionTitle: selectedSession.title,
-        acceptanceStatus: selectedSession.status.toLowerCase() as 'accepted' | 'rejected',
+        sessionTitle: selectedProposal.title,
+        acceptanceStatus: selectedProposal.status.toLowerCase() as 'accepted' | 'rejected',
         feedback: feedback,
       });
       setEmailContent(result.emailContent);
@@ -78,7 +79,7 @@ export function CommunicationsTab() {
     setIsDialogOpen(false);
   }
 
-  const getBadgeVariant = (status: SessionStatus) => {
+  const getBadgeVariant = (status: ProposalStatus) => {
     switch (status) {
       case 'Accepted': return 'default';
       case 'Rejected': return 'destructive';
@@ -99,23 +100,23 @@ export function CommunicationsTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Speaker</TableHead>
-                <TableHead>Session Title</TableHead>
+                <TableHead>Proposal Title</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sessions.filter(s => s.status !== 'Pending').map((session) => {
-                const speaker = speakers.find((s) => s.id === session.speakerId);
+              {proposals.filter(p => p.status !== 'Pending').map((proposal) => {
+                const speaker = speakers.find((s) => s.id === proposal.speakerId);
                 return (
-                  <TableRow key={session.id}>
+                  <TableRow key={proposal.id}>
                     <TableCell>{speaker?.name}</TableCell>
-                    <TableCell>{session.title}</TableCell>
+                    <TableCell>{proposal.title}</TableCell>
                     <TableCell>
-                      <Badge variant={getBadgeVariant(session.status)}>{session.status}</Badge>
+                      <Badge variant={getBadgeVariant(proposal.status)}>{proposal.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => handleOpenDialog(session)}>
+                      <Button variant="outline" size="sm" onClick={() => handleOpenDialog(proposal)}>
                         <Send className="mr-2 h-4 w-4" /> Send Update
                       </Button>
                     </TableCell>
@@ -127,13 +128,13 @@ export function CommunicationsTab() {
         </CardContent>
       </Card>
 
-      {selectedSession && (
+      {selectedProposal && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Send Email to {selectedSpeaker?.name}</DialogTitle>
               <DialogDescription>
-                Review and send the {selectedSession.status.toLowerCase()} notification.
+                Review and send the {selectedProposal.status.toLowerCase()} notification for "{selectedProposal.title}".
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">

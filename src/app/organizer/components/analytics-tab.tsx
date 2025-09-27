@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,19 +15,20 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { sessions } from '@/lib/data';
-import type { SessionTrack } from '@/lib/types';
+import { proposals } from '@/lib/data';
+import type { SessionTrack, ProposalStatus } from '@/lib/types';
+import { agendaSlots } from '@/lib/data';
 
-const trackData = sessions.reduce((acc, session) => {
-  acc[session.track] = (acc[session.track] || 0) + 1;
+const trackData = agendaSlots.reduce((acc, slot) => {
+  acc[slot.track] = (acc[slot.track] || 0) + 1;
   return acc;
 }, {} as Record<SessionTrack, number>);
 
 const pieData = Object.entries(trackData).map(([name, value]) => ({ name, value }));
 
-const statusData = sessions.reduce((acc, session) => {
-    if (session.status !== 'Pending') {
-      acc[session.status] = (acc[session.status] || 0) + 1;
+const statusData = proposals.reduce((acc, proposal) => {
+    if (proposal.status !== 'Pending') {
+      acc[proposal.status] = (acc[proposal.status] || 0) + 1;
     }
     return acc;
   }, {} as Record<'Accepted' | 'Rejected', number>);
@@ -41,7 +43,7 @@ export function AnalyticsTab() {
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Sessions by Track</CardTitle>
+          <CardTitle>Agenda Slots by Track</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -68,7 +70,7 @@ export function AnalyticsTab() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Acceptance Ratio</CardTitle>
+          <CardTitle>Proposal Acceptance Ratio</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>

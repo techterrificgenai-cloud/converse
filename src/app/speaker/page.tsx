@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -6,8 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { sessions as initialSessions, speakers } from '@/lib/data';
-import type { Session, SessionStatus } from '@/lib/types';
+import { proposals as initialProposals, speakers, agendaSlots } from '@/lib/data';
+import type { Proposal, ProposalStatus } from '@/lib/types';
 import { FilePlus, Upload, CalendarCheck, Award, QrCode } from 'lucide-react';
 import { MockQRCode } from '@/components/mock-qr-code';
 import {
@@ -19,22 +20,22 @@ import {
 } from '@/components/ui/dialog';
 
 // For prototype, we'll just use the first speaker as the logged-in user.
-const currentUser = speakers[0];
+const currentUser = speakers.find(s => s.name === 'Alice')!;
 
 export default function SpeakerDashboard() {
-  const [sessions, setSessions] = useState<Session[]>(initialSessions.filter(s => s.speakerId === currentUser.id));
+  const [proposals, setProposals] = useState<Proposal[]>(initialProposals.filter(p => p.speakerId === currentUser.id));
   const [availabilityConfirmed, setAvailabilityConfirmed] = useState(currentUser.availabilityConfirmed);
   const [presentationUploaded, setPresentationUploaded] = useState(currentUser.presentationUploaded);
 
   const getProgressValue = () => {
     let value = 25; // Profile complete
-    if (sessions.length > 0) value += 25;
+    if (proposals.length > 0) value += 25;
     if (availabilityConfirmed) value += 25;
     if (presentationUploaded) value += 25;
     return value;
   };
   
-  const getBadgeVariant = (status: SessionStatus) => {
+  const getBadgeVariant = (status: ProposalStatus) => {
     switch (status) {
       case 'Accepted': return 'default';
       case 'Rejected': return 'destructive';
@@ -42,7 +43,7 @@ export default function SpeakerDashboard() {
     }
   };
 
-  const hasAcceptedSession = sessions.some(s => s.status === 'Accepted');
+  const hasAcceptedSession = proposals.some(s => s.status === 'Accepted');
 
   return (
     <div className="space-y-6">
@@ -62,16 +63,26 @@ export default function SpeakerDashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
             <CardHeader>
-                <CardTitle>My Sessions</CardTitle>
+                <CardTitle>My Proposals</CardTitle>
                 <CardDescription>Status of your submitted proposals.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {sessions.length > 0 ? sessions.map(session => (
-                    <div key={session.id} className="flex justify-between items-center p-2 rounded-md border">
-                        <span className="font-medium">{session.title}</span>
-                        <Badge variant={getBadgeVariant(session.status)}>{session.status}</Badge>
+                {proposals.length > 0 ? proposals.map(proposal => {
+                    const slot = agendaSlots.find(s => s.id === proposal.slotId);
+                    return (
+                    <div key={proposal.id} className="p-3 rounded-md border bg-background">
+                        <div className="flex justify-between items-start">
+                            <p className="font-semibold">{proposal.title}</p>
+                            <Badge variant={getBadgeVariant(proposal.status)}>{proposal.status}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">For slot: "{slot?.title}"</p>
+                        {proposal.status === 'Rejected' && proposal.aiFeedback && (
+                            <p className="text-xs text-destructive mt-2 border-l-2 border-destructive/50 pl-2">
+                                <span className='font-semibold'>Feedback:</span> {proposal.aiFeedback}
+                            </p>
+                        )}
                     </div>
-                )) : (
+                )}) : (
                     <p className="text-muted-foreground">You haven't submitted any proposals yet.</p>
                 )}
             </CardContent>

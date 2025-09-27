@@ -1,8 +1,9 @@
+
 import { Button } from "@/components/ui/button";
 import { speakers } from "@/lib/data";
 import { Download, Award } from 'lucide-react';
 
-const currentUser = speakers[0];
+const currentUser = speakers.find(s => s.name === 'Alice')!;
 
 export default function CertificatePage() {
     return (

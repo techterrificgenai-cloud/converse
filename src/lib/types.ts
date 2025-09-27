@@ -1,6 +1,7 @@
+
 export type SessionCategory = 'Keynote' | 'Deep Dive' | 'Workshop' | 'Panel';
 export type SessionTrack = 'AI & ML' | 'Cloud Native' | 'Frontend' | 'DevOps' | 'Security';
-export type SessionStatus = 'Pending' | 'Accepted' | 'Rejected';
+export type ProposalStatus = 'Pending' | 'Accepted' | 'Rejected';
 
 export interface Speaker {
   id: string;
@@ -13,26 +14,34 @@ export interface Speaker {
   checkedIn: boolean;
 }
 
-export interface Session {
+export interface AgendaSlot {
   id: string;
   title: string;
-  abstract: string;
-  speakerId: string;
-  category: SessionCategory;
+  description: string;
   track: SessionTrack;
-  status: SessionStatus;
+  room: string;
+  time: string;
+  status: 'Open' | 'Conflict' | 'Filled';
+  acceptedProposalId?: string;
+}
+
+export interface Proposal {
+  id: string;
+  slotId: string;
+  speakerId: string;
+  title: string;
+  abstract: string;
+  status: ProposalStatus;
   aiScores?: {
     relevance: number;
     clarity: number;
     technicalDepth: number;
   };
   aiFeedback?: string;
-  scheduledAt?: string; // e.g., '2024-10-26T09:00:00'
-  scheduledRoom?: string; // e.g., 'Room A'
 }
 
 export interface Feedback {
-  sessionId: string;
+  sessionId: string; // This would now link to an AgendaSlot's acceptedProposalId
   rating: number; // 1-5
   comment: string;
 }

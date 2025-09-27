@@ -1,14 +1,8 @@
+
 'use client';
 
 import { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -19,197 +13,215 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { sessions as initialSessions, speakers } from '@/lib/data';
-import type { Session, SessionStatus } from '@/lib/types';
+import { agendaSlots as initialAgendaSlots, proposals as initialProposals, speakers } from '@/lib/data';
+import type { AgendaSlot, Proposal, Speaker } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Sparkles, Check, X, Loader2 } from 'lucide-react';
-import { aiSuggestProposalFeedback } from '@/ai/flows/ai-suggest-proposal-feedback';
+import { Sparkles, Check, X, Loader2, Users, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { resolveSubmissionConflict } from '@/ai/flows/resolve-submission-conflict';
+
+type SlotStatus = 'Open' | 'Conflict' | 'Filled';
+
+const statusColors: Record<SlotStatus, string> = {
+  Open: 'bg-green-100 border-green-300 dark:bg-green-900/50 dark:border-green-700',
+  Conflict: 'bg-orange-100 border-orange-300 dark:bg-orange-900/50 dark:border-orange-700',
+  Filled: 'bg-blue-100 border-blue-300 dark:bg-blue-900/50 dark:border-blue-700',
+};
+
+const statusText: Record<SlotStatus, string> = {
+    Open: 'This slot is open for submissions.',
+    Conflict: 'Multiple proposals received. Resolution required.',
+    Filled: 'This slot has been filled.',
+}
 
 export function SubmissionsTab() {
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [isReviewing, setIsReviewing] = useState(false);
+  const [agendaSlots, setAgendaSlots] = useState<AgendaSlot[]>(initialAgendaSlots);
+  const [proposals, setProposals] = useState<Proposal[]>(initialProposals);
+  const [selectedSlot, setSelectedSlot] = useState<AgendaSlot | null>(null);
+  const [conflictingProposals, setConflictingProposals] = useState<Proposal[]>([]);
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiFeedback, setAiFeedback] = useState<{ scores: any; feedback: string } | null>(null);
   const { toast } = useToast();
 
-  const handleReview = (session: Session) => {
-    setSelectedSession(session);
-    setAiFeedback(session.aiScores ? { scores: session.aiScores, feedback: session.aiFeedback || '' } : null);
-    setIsReviewing(true);
+  const handleReviewConflict = (slot: AgendaSlot) => {
+    const conflictProps = proposals.filter(p => p.slotId === slot.id && p.status === 'Pending');
+    if (conflictProps.length > 1) {
+      setSelectedSlot(slot);
+      setConflictingProposals(conflictProps);
+      setIsConflictDialogOpen(true);
+    }
   };
 
-  const handleStatusChange = (sessionId: string, status: SessionStatus) => {
-    setSessions((prevSessions) =>
-      prevSessions.map((s) => (s.id === sessionId ? { ...s, status } : s))
-    );
-    setIsReviewing(false);
-    setSelectedSession(null);
-    toast({
-      title: `Session ${status}`,
-      description: `The session has been marked as ${status.toLowerCase()}.`,
-    });
-  };
-
-  const getAiFeedback = async () => {
-    if (!selectedSession) return;
+  const handleResolveConflict = async (winningProposal: Proposal) => {
+    if (!selectedSlot) return;
     setIsAiLoading(true);
-    try {
-      const result = await aiSuggestProposalFeedback({
-        title: selectedSession.title,
-        abstract: selectedSession.abstract,
-        category: selectedSession.category,
-        track: selectedSession.track,
-      });
-      setAiFeedback({
-        scores: {
-          relevance: result.relevanceScore,
-          clarity: result.clarityScore,
-          technicalDepth: result.technicalDepthScore,
-        },
-        feedback: result.feedback,
-      });
-    } catch (error) {
-      console.error('AI feedback error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'AI Error',
-        description: 'Failed to get AI feedback. Please try again.',
-      });
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
 
-  const getBadgeVariant = (status: SessionStatus) => {
-    switch (status) {
-      case 'Accepted':
-        return 'default';
-      case 'Rejected':
-        return 'destructive';
-      case 'Pending':
-        return 'secondary';
+    const losingProposal = conflictingProposals.find(p => p.id !== winningProposal.id);
+
+    try {
+      let rejectionFeedback = 'This was a highly competitive slot and another proposal was a slightly better fit.';
+      if (losingProposal) {
+         const result = await resolveSubmissionConflict({
+            slotTitle: selectedSlot.title,
+            winningProposal: { title: winningProposal.title, abstract: winningProposal.abstract },
+            losingProposal: { title: losingProposal.title, abstract: losingProposal.abstract },
+         });
+         rejectionFeedback = result.rejectionFeedback;
+      }
+     
+      setProposals(prev =>
+        prev.map(p => {
+          if (p.id === winningProposal.id) return { ...p, status: 'Accepted' };
+          if (p.slotId === selectedSlot.id) return { ...p, status: 'Rejected', aiFeedback: rejectionFeedback };
+          return p;
+        })
+      );
+
+      setAgendaSlots(prev =>
+        prev.map(s =>
+          s.id === selectedSlot.id ? { ...s, status: 'Filled', acceptedProposalId: winningProposal.id } : s
+        )
+      );
+
+      toast({
+        title: 'Conflict Resolved',
+        description: `${speakers.find(s=>s.id === winningProposal.speakerId)?.name} has been selected for "${selectedSlot.title}".`,
+      });
+
+    } catch (error) {
+        console.error("Conflict resolution error:", error);
+        toast({
+            variant: 'destructive',
+            title: 'AI Error',
+            description: 'Could not generate rejection feedback. The conflict has been resolved without it.',
+        });
+    } finally {
+        setIsAiLoading(false);
+        setIsConflictDialogOpen(false);
+        setSelectedSlot(null);
+        setConflictingProposals([]);
     }
   };
+  
+  const getSpeaker = (speakerId: string): Speaker | undefined => speakers.find(s => s.id === speakerId);
 
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Session Submissions</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FileText /> Agenda Slots & Submissions</CardTitle>
+          <CardDescription>Review submissions for each agenda slot. Slots with multiple pending proposals are marked as conflicts.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Speaker</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Track</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessions.map((session) => {
-                const speaker = speakers.find((s) => s.id === session.speakerId);
-                return (
-                  <TableRow key={session.id}>
-                    <TableCell>{speaker?.name || 'N/A'}</TableCell>
-                    <TableCell className="font-medium">{session.title}</TableCell>
-                    <TableCell>{session.track}</TableCell>
-                    <TableCell>
-                      <Badge variant={getBadgeVariant(session.status)}>
-                        {session.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => handleReview(session)}>
-                        Review
+        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {agendaSlots.map(slot => {
+            const slotProposals = proposals.filter(p => p.slotId === slot.id);
+            const acceptedProposal = slotProposals.find(p => p.id === slot.acceptedProposalId);
+            const acceptedSpeaker = acceptedProposal ? getSpeaker(acceptedProposal.speakerId) : null;
+
+            return (
+              <Card key={slot.id} className={cn('flex flex-col', statusColors[slot.status])}>
+                <CardHeader>
+                  <CardTitle>{slot.title}</CardTitle>
+                  <CardDescription>{slot.track} &middot; {slot.room} @ {slot.time}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                   <p className="text-sm text-muted-foreground mb-4">{statusText[slot.status]}</p>
+                   {slot.status === 'Filled' && acceptedProposal && acceptedSpeaker && (
+                       <div className="p-3 rounded-md bg-background/50">
+                           <p className="font-semibold">{acceptedProposal.title}</p>
+                           <p className="text-sm text-muted-foreground">by {acceptedSpeaker.name}</p>
+                       </div>
+                   )}
+                   {slot.status === 'Conflict' && (
+                       <div className="p-3 rounded-md bg-background/50 space-y-2">
+                           <p className="font-semibold text-sm">Conflicting Proposals:</p>
+                           {slotProposals.filter(p => p.status === 'Pending').map(p => (
+                               <div key={p.id} className="text-xs">
+                                   <p className="font-medium">{p.title}</p>
+                                   <p className="text-muted-foreground">by {getSpeaker(p.speakerId)?.name}</p>
+                               </div>
+                           ))}
+                       </div>
+                   )}
+                </CardContent>
+                <CardFooter>
+                  {slot.status === 'Conflict' && (
+                    <Button className="w-full" onClick={() => handleReviewConflict(slot)}>
+                      <Users className="mr-2 h-4 w-4" /> Resolve Conflict
+                    </Button>
+                  )}
+                  {slot.status === 'Filled' && (
+                      <Button variant="secondary" className="w-full" disabled>
+                          <Check className="mr-2 h-4 w-4" /> Slot Filled
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                  )}
+                  {slot.status === 'Open' && (
+                      <Button variant="outline" className="w-full" disabled>No Submissions Yet</Button>
+                  )}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </CardContent>
       </Card>
-
-      {selectedSession && (
-        <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
-          <DialogContent className="sm:max-w-3xl">
+      
+      {selectedSlot && isConflictDialogOpen && (
+        <Dialog open={isConflictDialogOpen} onOpenChange={setIsConflictDialogOpen}>
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Review Proposal</DialogTitle>
-              <DialogDescription>{selectedSession.title}</DialogDescription>
+              <DialogTitle>Resolve Conflict for "{selectedSlot.title}"</DialogTitle>
+              <DialogDescription>
+                Two or more proposals have been submitted for this slot. Please review them and select one to accept. The other will be automatically rejected with AI-generated feedback.
+              </DialogDescription>
             </DialogHeader>
-            <div className="grid md:grid-cols-2 gap-6 py-4">
-              <div>
-                <h3 className="font-semibold text-lg mb-2">Proposal Details</h3>
-                <div className="space-y-4 text-sm">
-                  <p><strong>Speaker:</strong> {speakers.find(s => s.id === selectedSession.speakerId)?.name}</p>
-                  <p><strong>Category:</strong> {selectedSession.category}</p>
-                  <p><strong>Track:</strong> {selectedSession.track}</p>
-                  <div>
-                    <h4 className="font-semibold">Abstract</h4>
-                    <ScrollArea className="h-48 mt-1 rounded-md border p-3 bg-muted/50">
-                      <p className="text-muted-foreground">{selectedSession.abstract}</p>
-                    </ScrollArea>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Sparkles className="text-primary w-5 h-5" />
-                      AI-Assisted Review
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {aiFeedback ? (
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-semibold mb-2">Scores</h4>
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between"><span>Relevance:</span> <span>{aiFeedback.scores.relevance}/10</span></div>
-                            <div className="flex justify-between"><span>Clarity:</span> <span>{aiFeedback.scores.clarity}/10</span></div>
-                            <div className="flex justify-between"><span>Technical Depth:</span> <span>{aiFeedback.scores.technicalDepth}/10</span></div>
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold mb-2">Feedback</h4>
-                          <p className="text-sm text-muted-foreground">{aiFeedback.feedback}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground py-8">
-                        <p>Get AI-powered feedback and scores for this proposal.</p>
-                        <Button className="mt-4" onClick={getAiFeedback} disabled={isAiLoading}>
-                          {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                          Get AI Feedback
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+            <div className="py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {conflictingProposals.map(proposal => {
+                    const speaker = getSpeaker(proposal.speakerId);
+                    return (
+                        <Card key={proposal.id} className="flex flex-col">
+                            <CardHeader>
+                                <CardTitle>{proposal.title}</CardTitle>
+                                <CardDescription>by {speaker?.name}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex-grow space-y-4">
+                                <div>
+                                    <h4 className="font-semibold mb-1 text-sm">Abstract</h4>
+                                    <ScrollArea className="h-32 p-2 border rounded-md bg-muted/50">
+                                      <p className="text-sm text-muted-foreground">{proposal.abstract}</p>
+                                    </ScrollArea>
+                                </div>
+                                <Card className="bg-background">
+                                    <CardHeader className="p-4">
+                                        <CardTitle className="flex items-center gap-2 text-md">
+                                            <Sparkles className="text-primary w-4 h-4" /> AI Review
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-4 pt-0 text-sm space-y-2">
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between"><span>Relevance:</span> <span>{proposal.aiScores?.relevance}/10</span></div>
+                                            <div className="flex justify-between"><span>Clarity:</span> <span>{proposal.aiScores?.clarity}/10</span></div>
+                                            <div className="flex justify-between"><span>Tech Depth:</span> <span>{proposal.aiScores?.technicalDepth}/10</span></div>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold">Feedback:</h4>
+                                            <p className="text-muted-foreground text-xs">{proposal.aiFeedback}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </CardContent>
+                            <CardFooter>
+                                <Button className="w-full" onClick={() => handleResolveConflict(proposal)} disabled={isAiLoading}>
+                                    {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                                     Accept this Proposal
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )
+                })}
             </div>
             <DialogFooter>
-              <Button
-                variant="destructive"
-                onClick={() => handleStatusChange(selectedSession.id, 'Rejected')}
-              >
-                <X className="mr-2 h-4 w-4" /> Reject
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => handleStatusChange(selectedSession.id, 'Accepted')}
-              >
-                <Check className="mr-2 h-4 w-4" /> Accept
-              </Button>
+                <Button variant="outline" onClick={() => setIsConflictDialogOpen(false)}>Cancel</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
