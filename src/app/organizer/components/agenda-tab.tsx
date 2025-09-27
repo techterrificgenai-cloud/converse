@@ -60,8 +60,8 @@ export function AgendaTab() {
               ))}
 
               {timeSlots.map((time) => (
-                <>
-                  <div key={time} className="p-2 font-semibold bg-muted/50 flex items-center justify-center">{time}</div>
+                <React.Fragment key={time}>
+                  <div className="p-2 font-semibold bg-muted/50 flex items-center justify-center">{time}</div>
                   {rooms.map((room) => {
                     const session = getSessionAt(time, room);
                     return (
@@ -93,7 +93,7 @@ export function AgendaTab() {
                       </div>
                     );
                   })}
-                </>
+                </React.Fragment>
               ))}
             </div>
           </div>
