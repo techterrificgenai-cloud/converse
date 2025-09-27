@@ -40,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+
 
 type SlotStatus = 'Open' | 'Conflict' | 'Filled';
 
@@ -63,8 +65,8 @@ const addSlotSchema = z.object({
 });
 
 export function SubmissionsTab() {
-  const [agendaSlots, setAgendaSlots] = useState<AgendaSlot[]>(initialAgendaSlots);
-  const [proposals, setProposals] = useState<Proposal[]>(initialProposals);
+  const [agendaSlots, setAgendaSlots] = useLocalStorage<AgendaSlot[]>('agendaSlots', initialAgendaSlots);
+  const [proposals, setProposals] = useLocalStorage<Proposal[]>('proposals', initialProposals);
   const [selectedSlot, setSelectedSlot] = useState<AgendaSlot | null>(null);
   const [conflictingProposals, setConflictingProposals] = useState<Proposal[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);

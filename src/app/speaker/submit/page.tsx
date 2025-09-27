@@ -37,7 +37,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Loader2, Send } from 'lucide-react';
 import { suggestSessionTitles } from '@/ai/flows/ai-suggest-session-titles';
 import { useRouter } from 'next/navigation';
-import { agendaSlots } from '@/lib/data';
+import { agendaSlots as initialAgendaSlots } from '@/lib/data';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import type { AgendaSlot } from '@/lib/types';
+
 
 const proposalSchema = z.object({
   slotId: z.string().nonempty('Please select an agenda slot.'),
@@ -48,6 +51,7 @@ const proposalSchema = z.object({
 export default function SubmitProposalPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const [agendaSlots] = useLocalStorage<AgendaSlot[]>('agendaSlots', initialAgendaSlots);
   const form = useForm<z.infer<typeof proposalSchema>>({
     resolver: zodResolver(proposalSchema),
     defaultValues: { slotId: '', title: '', abstract: '' },
@@ -164,6 +168,7 @@ export default function SubmitProposalPage() {
                       className="min-h-[150px]"
                       {...field}
                     />
+
                   </FormControl>
                   <FormDescription>
                     This will be shown to the review committee. Be clear and engaging.
