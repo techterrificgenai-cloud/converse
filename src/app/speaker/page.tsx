@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { proposals as initialProposals, speakers, agendaSlots as initialAgendaSlots } from '@/lib/data';
 import type { Proposal, ProposalStatus, AgendaSlot } from '@/lib/types';
-import { FilePlus, Upload, CalendarCheck, Award, QrCode } from 'lucide-react';
+import { FilePlus, Upload, CalendarCheck, Award, QrCode, Sparkles, Send } from 'lucide-react';
 import { MockQRCode } from '@/components/mock-qr-code';
 import {
   Dialog,
@@ -22,6 +22,11 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 
 // For prototype, we'll just use the first speaker as the logged-in user.
 const currentUser = speakers.find(s => s.name === 'Alice')!;
+// In a real app, this would come from the user's session/profile data
+const currentUserProfile = {
+    preferredTrack: 'AI & ML' as const,
+};
+
 
 export default function SpeakerDashboard() {
   const [proposals, setProposals] = useLocalStorage<Proposal[]>(`proposals_${currentUser.id}`, initialProposals.filter(p => p.speakerId === currentUser.id));
@@ -47,98 +52,129 @@ export default function SpeakerDashboard() {
 
   const hasAcceptedSession = proposals.some(s => s.status === 'Accepted');
 
+  const recommendedSlots = agendaSlots.filter(
+    slot => slot.status === 'Open' && slot.track === currentUserProfile.preferredTrack
+  );
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Welcome, {currentUser.name}!</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Onboarding Progress</CardTitle>
-          <CardDescription>Complete these steps to be ready for the event.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Progress value={getProgressValue()} className="w-full" />
-          <div className="mt-2 text-sm text-muted-foreground">{getProgressValue()}% complete</div>
-        </CardContent>
-      </Card>
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6">
         <Card>
-            <CardHeader>
-                <CardTitle>My Proposals</CardTitle>
-                <CardDescription>Status of your submitted proposals.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {proposals.length > 0 ? proposals.map(proposal => {
-                    const slot = agendaSlots.find(s => s.id === proposal.slotId);
-                    return (
-                    <div key={proposal.id} className="p-3 rounded-md border bg-background">
-                        <div className="flex justify-between items-start">
-                            <p className="font-semibold">{proposal.title}</p>
-                            <Badge variant={getBadgeVariant(proposal.status)}>{proposal.status}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">For slot: "{slot?.title}"</p>
-                        {proposal.status === 'Rejected' && proposal.aiFeedback && (
-                            <p className="text-xs text-destructive mt-2 border-l-2 border-destructive/50 pl-2">
-                                <span className='font-semibold'>Feedback:</span> {proposal.aiFeedback}
-                            </p>
-                        )}
-                    </div>
-                )}) : (
-                    <p className="text-muted-foreground">You haven't submitted any proposals yet.</p>
-                )}
-            </CardContent>
-            <CardFooter>
-                 <Button asChild className="w-full">
-                    <Link href="/speaker/submit"><FilePlus className="mr-2 h-4 w-4" /> Submit a New Proposal</Link>
-                </Button>
-            </CardFooter>
+          <CardHeader>
+            <CardTitle>Your Onboarding Progress</CardTitle>
+            <CardDescription>Complete these steps to be ready for the event.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress value={getProgressValue()} className="w-full" />
+            <div className="mt-2 text-sm text-muted-foreground">{getProgressValue()}% complete</div>
+          </CardContent>
         </Card>
         
-        <Card className={!hasAcceptedSession ? 'bg-muted/50' : ''}>
-            <CardHeader>
-                <CardTitle>Pre-Event Tasks</CardTitle>
-                <CardDescription>Tasks to complete for your accepted sessions.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <Button onClick={() => setAvailabilityConfirmed(true)} disabled={!hasAcceptedSession || availabilityConfirmed} className="w-full justify-start gap-2">
-                    <CalendarCheck className="h-4 w-4" /> {availabilityConfirmed ? 'Availability Confirmed' : 'Confirm Availability'}
-                </Button>
-                <Button onClick={() => setPresentationUploaded(true)} disabled={!hasAcceptedSession || presentationUploaded} variant="outline" className="w-full justify-start gap-2">
-                    <Upload className="h-4 w-4" /> {presentationUploaded ? 'Presentation Uploaded' : 'Upload Presentation'}
-                </Button>
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Event Tools</CardTitle>
-                <CardDescription>Your resources for the event day.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                            <QrCode className="h-4 w-4" /> Show My Check-in QR
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-xs">
-                        <DialogHeader>
-                            <DialogTitle>Your Check-in Code</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col items-center justify-center p-4 gap-2">
-                            <MockQRCode value={currentUser.id} size={200} />
-                            <p className="text-sm text-muted-foreground">Present this at registration.</p>
+        {recommendedSlots.length > 0 && (
+           <Card className="bg-accent/20 border-accent">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Sparkles className="text-accent" /> Recommended For You</CardTitle>
+                    <CardDescription>We found some open agenda slots that match your profile's preferred track: <strong>{currentUserProfile.preferredTrack}</strong></CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                    {recommendedSlots.map(slot => (
+                        <div key={slot.id} className="p-4 rounded-md border bg-background flex flex-col">
+                            <h4 className="font-semibold">{slot.title}</h4>
+                            <p className="text-sm text-muted-foreground flex-grow">{slot.description}</p>
+                            <div className="flex justify-between items-center mt-4">
+                                <Badge variant="secondary">{slot.room} @ {slot.time}</Badge>
+                                <Button asChild size="sm">
+                                    <Link href={`/speaker/submit?slotId=${slot.id}`}>
+                                        <Send className="mr-2 h-4 w-4" /> Submit Proposal
+                                    </Link>
+                                </Button>
+                            </div>
                         </div>
-                    </DialogContent>
-                </Dialog>
-                <Button asChild variant="outline" className="w-full justify-start gap-2">
-                    <Link href="/speaker/certificate">
-                        <Award className="h-4 w-4" /> Download Certificate
-                    </Link>
-                </Button>
-            </CardContent>
-        </Card>
+                    ))}
+                </CardContent>
+            </Card>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-3">
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Proposals</CardTitle>
+                    <CardDescription>Status of your submitted proposals.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {proposals.length > 0 ? proposals.map(proposal => {
+                        const slot = agendaSlots.find(s => s.id === proposal.slotId);
+                        return (
+                        <div key={proposal.id} className="p-3 rounded-md border bg-background">
+                            <div className="flex justify-between items-start">
+                                <p className="font-semibold">{proposal.title}</p>
+                                <Badge variant={getBadgeVariant(proposal.status)}>{proposal.status}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">For slot: "{slot?.title}"</p>
+                            {proposal.status === 'Rejected' && proposal.aiFeedback && (
+                                <p className="text-xs text-destructive mt-2 border-l-2 border-destructive/50 pl-2">
+                                    <span className='font-semibold'>Feedback:</span> {proposal.aiFeedback}
+                                </p>
+                            )}
+                        </div>
+                    )}) : (
+                        <p className="text-muted-foreground">You haven't submitted any proposals yet.</p>
+                    )}
+                </CardContent>
+                <CardFooter>
+                    <Button asChild className="w-full">
+                        <Link href="/speaker/submit"><FilePlus className="mr-2 h-4 w-4" /> Submit a New Proposal</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+            
+            <Card className={!hasAcceptedSession ? 'bg-muted/50' : ''}>
+                <CardHeader>
+                    <CardTitle>Pre-Event Tasks</CardTitle>
+                    <CardDescription>Tasks to complete for your accepted sessions.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Button onClick={() => setAvailabilityConfirmed(true)} disabled={!hasAcceptedSession || availabilityConfirmed} className="w-full justify-start gap-2">
+                        <CalendarCheck className="h-4 w-4" /> {availabilityConfirmed ? 'Availability Confirmed' : 'Confirm Availability'}
+                    </Button>
+                    <Button onClick={() => setPresentationUploaded(true)} disabled={!hasAcceptedSession || presentationUploaded} variant="outline" className="w-full justify-start gap-2">
+                        <Upload className="h-4 w-4" /> {presentationUploaded ? 'Presentation Uploaded' : 'Upload Presentation'}
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Event Tools</CardTitle>
+                    <CardDescription>Your resources for the event day.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start gap-2">
+                                <QrCode className="h-4 w-4" /> Show My Check-in QR
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-xs">
+                            <DialogHeader>
+                                <DialogTitle>Your Check-in Code</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col items-center justify-center p-4 gap-2">
+                                <MockQRCode value={currentUser.id} size={200} />
+                                <p className="text-sm text-muted-foreground">Present this at registration.</p>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                    <Button asChild variant="outline" className="w-full justify-start gap-2">
+                        <Link href="/speaker/certificate">
+                            <Award className="h-4 w-4" /> Download Certificate
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );

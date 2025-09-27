@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -36,7 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Loader2, Send } from 'lucide-react';
 import { suggestSessionTitles } from '@/ai/flows/ai-suggest-session-titles';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { agendaSlots as initialAgendaSlots } from '@/lib/data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { AgendaSlot } from '@/lib/types';
@@ -51,6 +51,7 @@ const proposalSchema = z.object({
 export default function SubmitProposalPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [agendaSlots] = useLocalStorage<AgendaSlot[]>('agendaSlots', initialAgendaSlots);
   const form = useForm<z.infer<typeof proposalSchema>>({
     resolver: zodResolver(proposalSchema),
@@ -61,6 +62,14 @@ export default function SubmitProposalPage() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [titleSuggestions, setTitleSuggestions] = useState<string[]>([]);
   
+  useEffect(() => {
+    const recommendedSlotId = searchParams.get('slotId');
+    if (recommendedSlotId) {
+      form.setValue('slotId', recommendedSlotId);
+    }
+  }, [searchParams, form]);
+
+
   const onSubmit = (values: z.infer<typeof proposalSchema>) => {
     console.log(values);
     toast({
@@ -122,14 +131,18 @@ export default function SubmitProposalPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Agenda Slot</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an available agenda slot to apply for" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableSlots.map(slot => <SelectItem key={slot.id} value={slot.id}>[{slot.track}] {slot.title}</SelectItem>)}
+                      {availableSlots.length > 0 ? (
+                        availableSlots.map(slot => <SelectItem key={slot.id} value={slot.id}>[{slot.track}] {slot.title}</SelectItem>)
+                      ) : (
+                        <SelectItem value="disabled" disabled>No open slots available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormDescription>This is the conference slot you are applying to speak in.</FormDescription>
