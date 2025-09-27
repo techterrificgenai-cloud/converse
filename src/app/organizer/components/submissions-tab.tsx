@@ -2,6 +2,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
   Dialog,
@@ -10,16 +13,33 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { agendaSlots as initialAgendaSlots, proposals as initialProposals, speakers } from '@/lib/data';
-import type { AgendaSlot, Proposal, Speaker } from '@/lib/types';
+import type { AgendaSlot, Proposal, Speaker, SessionTrack } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Sparkles, Check, X, Loader2, Users, FileText } from 'lucide-react';
+import { Sparkles, Check, X, Loader2, Users, FileText, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { resolveSubmissionConflict } from '@/ai/flows/resolve-submission-conflict';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type SlotStatus = 'Open' | 'Conflict' | 'Filled';
 
@@ -35,14 +55,28 @@ const statusText: Record<SlotStatus, string> = {
     Filled: 'This slot has been filled.',
 }
 
+const addSlotSchema = z.object({
+    title: z.string().min(5, 'Title must be at least 5 characters long.'),
+    track: z.enum(['AI & ML', 'Cloud Native', 'Frontend', 'DevOps', 'Security']),
+    room: z.string().nonempty('Room is required.'),
+    time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format.'),
+});
+
 export function SubmissionsTab() {
   const [agendaSlots, setAgendaSlots] = useState<AgendaSlot[]>(initialAgendaSlots);
   const [proposals, setProposals] = useState<Proposal[]>(initialProposals);
   const [selectedSlot, setSelectedSlot] = useState<AgendaSlot | null>(null);
   const [conflictingProposals, setConflictingProposals] = useState<Proposal[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof addSlotSchema>>({
+    resolver: zodResolver(addSlotSchema),
+    defaultValues: { title: '', room: '', time: '' },
+  });
+
 
   const handleReviewConflict = (slot: AgendaSlot) => {
     const conflictProps = proposals.filter(p => p.slotId === slot.id && p.status === 'Pending');
@@ -104,14 +138,98 @@ export function SubmissionsTab() {
     }
   };
   
+  const handleAddSlot = (values: z.infer<typeof addSlotSchema>) => {
+    const newSlot: AgendaSlot = {
+        id: `slot_${Date.now()}`,
+        title: values.title,
+        description: 'Newly added slot.', // You can add a description field to the form if needed
+        track: values.track,
+        room: values.room,
+        time: values.time,
+        status: 'Open',
+    };
+
+    setAgendaSlots(prev => [...prev, newSlot]);
+    // Also update the shared data source so speakers can see it
+    initialAgendaSlots.push(newSlot);
+    
+    toast({
+        title: 'Agenda Slot Added',
+        description: `"${newSlot.title}" has been added and is now open for submissions.`,
+    });
+    
+    setIsAddDialogOpen(false);
+    form.reset();
+  };
+
   const getSpeaker = (speakerId: string): Speaker | undefined => speakers.find(s => s.id === speakerId);
 
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileText /> Agenda Slots & Submissions</CardTitle>
-          <CardDescription>Review submissions for each agenda slot. Slots with multiple pending proposals are marked as conflicts.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center gap-2"><FileText /> Agenda Slots & Submissions</CardTitle>
+                <CardDescription>Review submissions for each agenda slot. Slots with multiple pending proposals are marked as conflicts.</CardDescription>
+            </div>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Add New Slot</Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New Agenda Slot</DialogTitle>
+                        <DialogDescription>Create a new slot for speakers to submit proposals to.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleAddSlot)} className="space-y-4 py-4">
+                            <FormField control={form.control} name="title" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Slot Title</FormLabel>
+                                    <FormControl><Input placeholder="e.g., The Future of Web Development" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                             <FormField control={form.control} name="track" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Track</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Select a track" /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="AI & ML">AI & ML</SelectItem>
+                                            <SelectItem value="Cloud Native">Cloud Native</SelectItem>
+                                            <SelectItem value="Frontend">Frontend</SelectItem>
+                                            <SelectItem value="DevOps">DevOps</SelectItem>
+                                            <SelectItem value="Security">Security</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="room" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Room</FormLabel>
+                                    <FormControl><Input placeholder="e.g., Hall D" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="time" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Time</FormLabel>
+                                    <FormControl><Input placeholder="HH:MM (e.g., 15:00)" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                                <Button type="submit">Add Slot</Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {agendaSlots.map(slot => {
