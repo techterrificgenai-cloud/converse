@@ -59,12 +59,11 @@ const step2Schema = z.object({
 
 const step3Schema = z.object({
     skills: z.string().min(3, 'Please list at least one skill.'),
-    preferredTrack: z.enum(['AI & ML', 'Cloud Native', 'Frontend', 'DevOps', 'Security']),
+    preferredTrack: z.enum(['AI & ML', 'Cloud Native', 'Frontend', 'DevOps', 'Security'], { required_error: 'Please select a preferred track.'}),
 });
 
-type Step1Data = z.infer<typeof step1Schema>;
-type Step2Data = z.infer<typeof step2Schema>;
-type Step3Data = z.infer<typeof step3Schema>;
+const fullSchema = step1Schema.merge(step2Schema).merge(step3Schema);
+type FullFormData = z.infer<typeof fullSchema>;
 
 
 export default function SignUpPage() {
@@ -73,27 +72,37 @@ export default function SignUpPage() {
   const [, setAuthStatus] = useLocalStorage('auth-status', { loggedIn: false, role: null });
   const [step, setStep] = useState(1);
 
-  const [step1Data, setStep1Data] = useState<Partial<Step1Data>>({});
-  const [step2Data, setStep2Data] = useState<Partial<Step2Data>>({});
+  const form = useForm<FullFormData>({
+    resolver: zodResolver(fullSchema),
+    defaultValues: {
+        name: '',
+        email: '',
+        password: '',
+        profession: '',
+        qualifications: '',
+        bio: '',
+        skills: '',
+    }
+  });
 
-  const formStep1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema), defaultValues: { name: '', email: '', password: ''} });
-  const formStep2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema), defaultValues: { profession: '', qualifications: '', bio: ''} });
-  const formStep3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema), defaultValues: { skills: ''} });
+  const handleNextStep = async () => {
+    let fieldsToValidate: (keyof FullFormData)[] = [];
+    if (step === 1) fieldsToValidate = ['name', 'email', 'password', 'dob'];
+    if (step === 2) fieldsToValidate = ['profession', 'qualifications', 'bio'];
 
-  const handleNextStep1 = (data: Step1Data) => {
-    setStep1Data(data);
-    setStep(2);
+    const isValid = await form.trigger(fieldsToValidate);
+    if (isValid) {
+      setStep(s => s + 1);
+    }
   };
 
-  const handleNextStep2 = (data: Step2Data) => {
-    setStep2Data(data);
-    setStep(3);
-  };
+  const handlePrevStep = () => {
+    setStep(s => s - 1);
+  }
   
-  const handleFinalSubmit = (data: Step3Data) => {
+  const handleFinalSubmit = (data: FullFormData) => {
     // In a real app, you would compile all data and send to a server
-    const finalData = { ...step1Data, ...step2Data, ...data };
-    console.log('Final Registration Data:', finalData);
+    console.log('Final Registration Data:', data);
 
     // For the prototype, we just log in the user as a speaker
     setAuthStatus({ loggedIn: true, role: 'speaker' });
@@ -109,87 +118,81 @@ export default function SignUpPage() {
     switch (step) {
       case 1:
         return (
-            <Form {...formStep1}>
-                <form onSubmit={formStep1.handleSubmit(handleNextStep1)} className="space-y-4">
-                    <FormField control={formStep1.control} name="name" render={({ field }) => (
-                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep1.control} name="email" render={({ field }) => (
-                        <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep1.control} name="password" render={({ field }) => (
-                        <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep1.control} name="dob" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel>Date of Birth</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                        </Button>
-                                    </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                        <FormMessage /></FormItem>
-                    )} />
-                    <Button type="submit" className="w-full">Next</Button>
-                </form>
-            </Form>
+            <div className="space-y-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="password" render={({ field }) => (
+                    <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="dob" render={({ field }) => (
+                    <FormItem className="flex flex-col"><FormLabel>Date of Birth</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    <FormMessage /></FormItem>
+                )} />
+                <Button onClick={handleNextStep} className="w-full">Next</Button>
+            </div>
         );
       case 2:
         return (
-            <Form {...formStep2}>
-                <form onSubmit={formStep2.handleSubmit(handleNextStep2)} className="space-y-4">
-                    <FormField control={formStep2.control} name="profession" render={({ field }) => (
-                        <FormItem><FormLabel>Profession / Job Title</FormLabel><FormControl><Input placeholder="e.g., Software Engineer" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep2.control} name="qualifications" render={({ field }) => (
-                        <FormItem><FormLabel>Qualifications</FormLabel><FormControl><Input placeholder="e.g., M.Sc. in Computer Science" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep2.control} name="bio" render={({ field }) => (
-                        <FormItem><FormLabel>Short Bio</FormLabel><FormControl><Textarea placeholder="Tell us a little about yourself..." {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <div className="flex gap-4">
-                        <Button variant="outline" onClick={() => setStep(1)} className="w-full">Back</Button>
-                        <Button type="submit" className="w-full">Next</Button>
-                    </div>
-                </form>
-            </Form>
+            <div className="space-y-4">
+                <FormField control={form.control} name="profession" render={({ field }) => (
+                    <FormItem><FormLabel>Profession / Job Title</FormLabel><FormControl><Input placeholder="e.g., Software Engineer" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="qualifications" render={({ field }) => (
+                    <FormItem><FormLabel>Qualifications</FormLabel><FormControl><Input placeholder="e.g., M.Sc. in Computer Science" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="bio" render={({ field }) => (
+                    <FormItem><FormLabel>Short Bio</FormLabel><FormControl><Textarea placeholder="Tell us a little about yourself..." {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="flex gap-4">
+                    <Button variant="outline" onClick={handlePrevStep} className="w-full">Back</Button>
+                    <Button onClick={handleNextStep} className="w-full">Next</Button>
+                </div>
+            </div>
         );
       case 3:
         return (
-            <Form {...formStep3}>
-                <form onSubmit={formStep3.handleSubmit(handleFinalSubmit)} className="space-y-4">
-                    <FormField control={formStep3.control} name="skills" render={({ field }) => (
-                        <FormItem><FormLabel>Skills</FormLabel><FormControl><Input placeholder="e.g., React, TypeScript, Node.js" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={formStep3.control} name="preferredTrack" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Preferred Domain/Track</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select a domain" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="AI & ML">AI & ML</SelectItem>
-                                    <SelectItem value="Cloud Native">Cloud Native</SelectItem>
-                                    <SelectItem value="Frontend">Frontend</SelectItem>
-                                    <SelectItem value="DevOps">DevOps</SelectItem>
-                                    <SelectItem value="Security">Security</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <div className="flex gap-4">
-                        <Button variant="outline" onClick={() => setStep(2)} className="w-full">Back</Button>
-                        <Button type="submit" className="w-full">Finish Sign Up</Button>
-                    </div>
-                </form>
-            </Form>
+            <div className="space-y-4">
+                <FormField control={form.control} name="skills" render={({ field }) => (
+                    <FormItem><FormLabel>Skills</FormLabel><FormControl><Input placeholder="e.g., React, TypeScript, Node.js" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="preferredTrack" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Preferred Domain/Track</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a domain" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="AI & ML">AI & ML</SelectItem>
+                                <SelectItem value="Cloud Native">Cloud Native</SelectItem>
+                                <SelectItem value="Frontend">Frontend</SelectItem>
+                                <SelectItem value="DevOps">DevOps</SelectItem>
+                                <SelectItem value="Security">Security</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <div className="flex gap-4">
+                    <Button variant="outline" onClick={handlePrevStep} className="w-full">Back</Button>
+                    <Button onClick={form.handleSubmit(handleFinalSubmit)} className="w-full">Finish Sign Up</Button>
+                </div>
+            </div>
         );
     }
   };
@@ -206,7 +209,11 @@ export default function SignUpPage() {
           <CardDescription>Step {step} of 3: {step === 1 ? 'Personal Details' : step === 2 ? 'Professional Info' : 'Skills & Preferences'}</CardDescription>
         </CardHeader>
         <CardContent>
-            {renderStep()}
+             <Form {...form}>
+                <form onSubmit={e => e.preventDefault()}>
+                    {renderStep()}
+                </form>
+             </Form>
         </CardContent>
         <CardFooter className="flex-col items-center gap-2">
             <div className="text-center text-sm">
