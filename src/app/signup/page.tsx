@@ -76,9 +76,9 @@ export default function SignUpPage() {
   const [step1Data, setStep1Data] = useState<Partial<Step1Data>>({});
   const [step2Data, setStep2Data] = useState<Partial<Step2Data>>({});
 
-  const formStep1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) });
-  const formStep2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) });
-  const formStep3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema) });
+  const formStep1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema), defaultValues: { name: '', email: '', password: ''} });
+  const formStep2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema), defaultValues: { profession: '', qualifications: '', bio: ''} });
+  const formStep3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema), defaultValues: { skills: ''} });
 
   const handleNextStep1 = (data: Step1Data) => {
     setStep1Data(data);
@@ -220,4 +220,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-
