@@ -114,6 +114,12 @@ export default function LoginPage() {
                 Login
               </Button>
               <div className="mt-4 text-center text-sm">
+                Don't have a speaker account?{' '}
+                <Link href="/signup" className="underline">
+                  Sign up
+                </Link>
+              </div>
+              <div className="mt-2 text-center text-sm">
                 <Link href="/" className="underline">
                   Back to Landing Page
                 </Link>

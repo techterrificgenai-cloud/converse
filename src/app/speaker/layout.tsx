@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +11,7 @@ import {
   Download,
   Award,
   LogOut,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const navItems = [
   { href: '/speaker', icon: Home, label: 'Dashboard' },
+  { href: '/speaker/profile', icon: User, label: 'My Profile'},
   { href: '/speaker/submit', icon: FilePlus, label: 'Submit Proposal' },
   { href: '#', icon: CalendarCheck, label: 'My Schedule' },
   { href: '#', icon: Download, label: 'Resources' },
@@ -145,7 +148,9 @@ export default function SpeakerLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>My Profile</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                  <Link href="/speaker/profile">My Profile</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
